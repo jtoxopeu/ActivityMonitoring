@@ -1,0 +1,71 @@
+# Predicting Weight Lifting Technique With Personal Activity Monitors
+
+## Instructions
+* You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did.   
+* Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis.   
+* Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5.   
+* It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online.
+
+## Code
+Downloading and reading files into R:
+```{r read, cache=TRUE}
+urltrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(urltrain, destfile="pml-training.csv")
+
+urlvalidate <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(urlvalidate, destfile="pml-testing.csv")
+
+training <- read.csv("pml-training.csv")
+validation <- read.csv("pml-testing.csv")
+```
+
+Loading libraries
+```{r library, cache=TRUE}
+library(caret)
+library(randomForest)
+```
+
+Partition "training" data into train (60%) and test (40%) sets for cross-validation prior to predicting on the "validation" data.
+```{r partition}
+set.seed(21)
+inTrain <- createDataPartition(training$classe, p=0.6, list=FALSE)
+train1 <- training[inTrain,]
+test1 <- training[-inTrain,]
+```
+
+There are 159 potential predictor variables in the dataset. The prediction function will be based on raw data from the accelerometers only. All nonmeasurement variables are removed. Most of the summary variables (e.g. average, kurtosis, skew) exhibit lots of missing values, so summary variables are removed as well. The same transformations are applied to train, test, and validation datasets.
+```{r cleaning}
+# Removing nonmeasurement variables
+train2 <- train1[, 8:160]
+test2 <- test1[, 8:160]
+validation2 <- validation[, 8:160]
+
+# Removing summary variables
+col <- colnames(train2)
+elimcol <- which(grepl("skewness", col) | grepl("kurtosis", col)| grepl("max", col)|
+                     grepl("min", col)| grepl("amplitude", col) | grepl("stddev", col)|
+                     grepl("avg", col) | grepl("var", col))
+train3 <- train2[,-elimcol]
+test3 <- test2[,-elimcol]
+validation3 <- validation2[,-elimcol]
+```
+
+Building a random forest prediction model based on the train dataset. Random forest was chosen due to its high accuracy. 
+```{r fit, cache=TRUE}
+fitrf <- train(classe~., data=train3, method="rf")
+```
+
+Cross-validation of the model on train dataset.
+```{r crossvalidate}
+predrf <- predict(fitrf, test3)
+confusionMatrix(predrf, test3$classe)
+```
+
+Predicting weight-lifting technique on the validation dataset
+```{r predict}
+predvalrf <- predict(fitrf, validation3)
+predvalrf
+```
+
+## Conclusions
+The random forest model accurately predicts.
