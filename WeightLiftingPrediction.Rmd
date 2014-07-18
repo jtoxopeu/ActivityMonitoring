@@ -1,39 +1,26 @@
-# Predicting Weight Lifting Technique With Personal Activity Monitors
+## Predicting Weight Lifting Technique With Personal Activity Monitors
 
-## Instructions
-* You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did.   
-* Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis.   
-* Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5.   
-* It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online.
+### Introduction
+Personal activity monitoring data from participants performing weightlifting was downloaded from [http://groupware.les.inf.puc-rio.br/har](http://groupware.les.inf.puc-rio.br/har). This data included a ["training" dataset](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) containing information from accelerometers on each participant's torso (belt), forearm, upper arm, and dumbell. Participants were instructed to lift the weight correctly (A), or in one of several incorrect ways (B, C, D, E). The aim of the project is to build a prediction model that identifies the method of weight lifting from accelerometer data. This model is tested on a ["validation" dataset](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv) that contains 20 cases of weight lifting to which no method (A, B, C, D, or E) has been assigned.
 
-## Code
-Downloading and reading files into R:
+### Data Processing
+The training and validation datasets were read into R.
 ```{r read, cache=TRUE}
-urltrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
-download.file(urltrain, destfile="pml-training.csv")
-
-urlvalidate <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
-download.file(urlvalidate, destfile="pml-testing.csv")
-
 training <- read.csv("pml-training.csv")
 validation <- read.csv("pml-testing.csv")
 ```
-
-Loading libraries
-```{r library, cache=TRUE}
-library(caret)
-library(randomForest)
+The packages required for model-building, `caret` and `randomForest`, were loaded.
+```{r library, cache=TRUE, message=FALSE}
+library(caret); library(randomForest)
 ```
-
-Partition "training" data into train (60%) and test (40%) sets for cross-validation prior to predicting on the "validation" data.
+The "training" data was partitioned into "train" (60%) and "test" (40%) sets for model building and cross-validation, respectively. 
 ```{r partition}
 set.seed(21)
 inTrain <- createDataPartition(training$classe, p=0.6, list=FALSE)
 train1 <- training[inTrain,]
 test1 <- training[-inTrain,]
 ```
-
-There are 159 potential predictor variables in the dataset. The prediction function will be based on raw data from the accelerometers only. All nonmeasurement variables are removed. Most of the summary variables (e.g. average, kurtosis, skew) exhibit lots of missing values, so summary variables are removed as well. The same transformations are applied to train, test, and validation datasets.
+Of the 159 potential predictor variables in the dataset, the prediction function will be based on raw data from the accelerometers only. All nonmeasurement variables are removed. Most of the summary variables (e.g. average, kurtosis, skew) exhibit lots of missing values, so summary variables are removed as well. The same transformations are applied to "train", "test", and "validation" datasets.
 ```{r cleaning}
 # Removing nonmeasurement variables
 train2 <- train1[, 8:160]
@@ -42,30 +29,45 @@ validation2 <- validation[, 8:160]
 
 # Removing summary variables
 col <- colnames(train2)
-elimcol <- which(grepl("skewness", col) | grepl("kurtosis", col)| grepl("max", col)|
-                     grepl("min", col)| grepl("amplitude", col) | grepl("stddev", col)|
-                     grepl("avg", col) | grepl("var", col))
+elimcol <- which(grepl("skewness", col)|grepl("kurtosis", col)|grepl("max", col)|grepl("min", col)|
+                     grepl("amplitude", col)|grepl("stddev", col)|grepl("avg", col)|grepl("var", col))
 train3 <- train2[,-elimcol]
 test3 <- test2[,-elimcol]
 validation3 <- validation2[,-elimcol]
 ```
 
-Building a random forest prediction model based on the train dataset. Random forest was chosen due to its high accuracy. 
+### Model Building
+To predict weight lifting method (`classe`), a random forest method was used on the modified "train" dataset. Random forest was chosen due to its high accuracy. Trials using, for example, boosting exhibited lower accuracy (results not shown).
 ```{r fit, cache=TRUE}
+set.seed(2112)
 fitrf <- train(classe~., data=train3, method="rf")
-```
 
-Cross-validation of the model on train dataset.
+## Determining the top 5 predictors
+fin <- fitrf$finalModel
+importance <- fin$importance
+ranked <- order(importance, decreasing=TRUE)
+top5 <- ranked[1:5]
+importance[top5,]
+```
+Based on importance, the top 5 predictors include the amount of roll and yaw detected by the belt accelerometer, the pitch detected by the forearm accelerometer, and magnet measurements in the y and z planes from the accelerometer on the dumbell.
+
+### Cross Validation
+Prior to attempting to predict weight lifting methods in the "validation" dataset, the model is first assessed on the modified "test" dataset. The random forest model is used to predict weight lifting methods for participants in the "test" dataset. These are then compared to the known weight lifting methods through calculating the confusion matrix below. Most cases of each method (A, B, C, D, and E) are predicted well by the model. The overall accuracy of the model is `r accuracy`.
 ```{r crossvalidate}
 predrf <- predict(fitrf, test3)
-confusionMatrix(predrf, test3$classe)
+summary <- confusionMatrix(predrf, test3$classe)
+summary$table
+accuracy <- summary$overall[1]
+accuracy
 ```
 
-Predicting weight-lifting technique on the validation dataset
+### Prediction of Unknowns
+Weight lifting methods are predicted for the 20 cases in the "validation" dataset. These predictions are expected to have a lower accuracy than `r accuracy`, as out-of-sample error is usually worse than the in-sample error calculated above. However, the predictions displayed below are 100% correct (i.e. accuracy = 1), based on successful submission of these predictions in the Coursera Machine Learning class.
 ```{r predict}
 predvalrf <- predict(fitrf, validation3)
 predvalrf
 ```
 
-## Conclusions
-The random forest model accurately predicts.
+### Conclusions
+The random forest model built above accurately predicts the method of weight lifting based on measurements from accelerometers on a person's body (especially the belt and forearm) and dumbbell. This suggests that more than one personal activity monitoring device must be used if weight lifters wish to automatically assess whether their technique is correct or not. 
+
