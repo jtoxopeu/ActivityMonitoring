@@ -53,35 +53,25 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 
 
 
-<div id="predicting-weight-lifting-technique-with-personal-activity-monitors" class="section level1">
-<h1>Predicting Weight Lifting Technique With Personal Activity Monitors</h1>
-<div id="instructions" class="section level2">
-<h2>Instructions</h2>
-<ul>
-<li>You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did.<br /></li>
-<li>Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis.<br /></li>
-<li>Please constrain the text of the writeup to &lt; 2000 words and the number of figures to be less than 5.<br /></li>
-<li>It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online.</li>
-</ul>
+<div id="predicting-weight-lifting-technique-with-personal-activity-monitors" class="section level2">
+<h2>Predicting Weight Lifting Technique With Personal Activity Monitors</h2>
+<div id="introduction" class="section level3">
+<h3>Introduction</h3>
+<p>Personal activity monitoring data from participants performing weightlifting was downloaded from <a href="http://groupware.les.inf.puc-rio.br/har"><a href="http://groupware.les.inf.puc-rio.br/har">http://groupware.les.inf.puc-rio.br/har</a></a>. This data included a <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv">“training” dataset</a> containing information from accelerometers on each participant’s torso (belt), forearm, upper arm, and dumbell. Participants were instructed to lift the weight correctly (A), or in one of several incorrect ways (B, C, D, E). The aim of the project is to build a prediction model that identifies the method of weight lifting from accelerometer data. This model is tested on a <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv">“validation” dataset</a> that contains 20 cases of weight lifting to which no method (A, B, C, D, or E) has been assigned.</p>
 </div>
-<div id="code" class="section level2">
-<h2>Code</h2>
-<p>Downloading and reading files into R:</p>
+<div id="data-processing" class="section level3">
+<h3>Data Processing</h3>
+<p>The training and validation datasets were read into R.</p>
 <pre class="r"><code>training &lt;- read.csv(&quot;pml-training.csv&quot;)
 validation &lt;- read.csv(&quot;pml-testing.csv&quot;)</code></pre>
-<p>Loading libraries</p>
-<pre class="r"><code>library(caret)</code></pre>
-<pre><code>## Loading required package: lattice
-## Loading required package: ggplot2</code></pre>
-<pre class="r"><code>library(randomForest)</code></pre>
-<pre><code>## randomForest 4.6-7
-## Type rfNews() to see new features/changes/bug fixes.</code></pre>
-<p>Partition “training” data into train (60%) and test (40%) sets for cross-validation prior to predicting on the “validation” data.</p>
+<p>The packages required for model-building, <code>caret</code> and <code>randomForest</code>, were loaded.</p>
+<pre class="r"><code>library(caret); library(randomForest)</code></pre>
+<p>The “training” data was partitioned into “train” (60%) and “test” (40%) sets for model building and cross-validation, respectively.</p>
 <pre class="r"><code>set.seed(21)
 inTrain &lt;- createDataPartition(training$classe, p=0.6, list=FALSE)
 train1 &lt;- training[inTrain,]
 test1 &lt;- training[-inTrain,]</code></pre>
-<p>There are 159 potential predictor variables in the dataset. The prediction function will be based on raw data from the accelerometers only. All nonmeasurement variables are removed. Most of the summary variables (e.g. average, kurtosis, skew) exhibit lots of missing values, so summary variables are removed as well. The same transformations are applied to train, test, and validation datasets.</p>
+<p>Of the 159 potential predictor variables in the dataset, the prediction function will be based on raw data from the accelerometers only. All nonmeasurement variables are removed. Most of the summary variables (e.g. average, kurtosis, skew) exhibit lots of missing values, so summary variables are removed as well. The same transformations are applied to “train”, “test”, and “validation” datasets.</p>
 <pre class="r"><code># Removing nonmeasurement variables
 train2 &lt;- train1[, 8:160]
 test2 &lt;- test1[, 8:160]
@@ -89,57 +79,60 @@ validation2 &lt;- validation[, 8:160]
 
 # Removing summary variables
 col &lt;- colnames(train2)
-elimcol &lt;- which(grepl(&quot;skewness&quot;, col) | grepl(&quot;kurtosis&quot;, col)| grepl(&quot;max&quot;, col)|
-                     grepl(&quot;min&quot;, col)| grepl(&quot;amplitude&quot;, col) | grepl(&quot;stddev&quot;, col)|
-                     grepl(&quot;avg&quot;, col) | grepl(&quot;var&quot;, col))
+elimcol &lt;- which(grepl(&quot;skewness&quot;, col)|grepl(&quot;kurtosis&quot;, col)|grepl(&quot;max&quot;, col)|grepl(&quot;min&quot;, col)|
+                     grepl(&quot;amplitude&quot;, col)|grepl(&quot;stddev&quot;, col)|grepl(&quot;avg&quot;, col)|grepl(&quot;var&quot;, col))
 train3 &lt;- train2[,-elimcol]
 test3 &lt;- test2[,-elimcol]
 validation3 &lt;- validation2[,-elimcol]</code></pre>
-<p>Building a random forest prediction model based on the train dataset. Random forest was chosen due to its high accuracy.</p>
-<pre class="r"><code>fitrf &lt;- train(classe~., data=train3, method=&quot;rf&quot;)</code></pre>
-<p>Cross-validation of the model on train dataset.</p>
+</div>
+<div id="model-building" class="section level3">
+<h3>Model Building</h3>
+<p>To predict weight lifting method (<code>classe</code>), a random forest method was used on the modified “train” dataset. Random forest was chosen due to its high accuracy. Trials using, for example, boosting exhibited lower accuracy (results not shown).</p>
+<pre class="r"><code>set.seed(2112)
+fitrf &lt;- train(classe~., data=train3, method=&quot;rf&quot;)
+
+## Determining the top 5 predictors
+fin &lt;- fitrf$finalModel
+importance &lt;- fin$importance
+ranked &lt;- order(importance, decreasing=TRUE)
+top5 &lt;- ranked[1:5]
+importance[top5,]</code></pre>
+<pre><code>##         roll_belt     pitch_forearm          yaw_belt magnet_dumbbell_y 
+##            1176.1             730.4             638.4             543.2 
+## magnet_dumbbell_z 
+##             538.1</code></pre>
+<p>Based on importance, the top 5 predictors include the amount of roll and yaw detected by the belt accelerometer, the pitch detected by the forearm accelerometer, and magnet measurements in the y and z planes from the accelerometer on the dumbell.</p>
+</div>
+<div id="cross-validation" class="section level3">
+<h3>Cross Validation</h3>
+<p>Prior to attempting to predict weight lifting methods in the “validation” dataset, the model is first assessed on the modified “test” dataset. The random forest model is used to predict weight lifting methods for participants in the “test” dataset. These are then compared to the known weight lifting methods through calculating the confusion matrix below.</p>
 <pre class="r"><code>predrf &lt;- predict(fitrf, test3)
-confusionMatrix(predrf, test3$classe)</code></pre>
-<pre><code>## Confusion Matrix and Statistics
-## 
-##           Reference
+summary &lt;- confusionMatrix(predrf, test3$classe)
+summary$table</code></pre>
+<pre><code>##           Reference
 ## Prediction    A    B    C    D    E
-##          A 2227   16    0    0    0
-##          B    1 1489   10    1    1
-##          C    1   13 1357   14    4
-##          D    1    0    1 1269    2
-##          E    2    0    0    2 1435
-## 
-## Overall Statistics
-##                                         
-##                Accuracy : 0.991         
-##                  95% CI : (0.989, 0.993)
-##     No Information Rate : 0.284         
-##     P-Value [Acc &gt; NIR] : &lt; 2e-16       
-##                                         
-##                   Kappa : 0.989         
-##  Mcnemar's Test P-Value : 0.00013       
-## 
-## Statistics by Class:
-## 
-##                      Class: A Class: B Class: C Class: D Class: E
-## Sensitivity             0.998    0.981    0.992    0.987    0.995
-## Specificity             0.997    0.998    0.995    0.999    0.999
-## Pos Pred Value          0.993    0.991    0.977    0.997    0.997
-## Neg Pred Value          0.999    0.995    0.998    0.997    0.999
-## Prevalence              0.284    0.193    0.174    0.164    0.184
-## Detection Rate          0.284    0.190    0.173    0.162    0.183
-## Detection Prevalence    0.286    0.191    0.177    0.162    0.183
-## Balanced Accuracy       0.997    0.989    0.994    0.993    0.997</code></pre>
-<p>Predicting weight-lifting technique on the validation dataset</p>
+##          A 2230   17    0    0    0
+##          B    1 1490   11    1    1
+##          C    1   11 1356   15    4
+##          D    0    0    1 1268    2
+##          E    0    0    0    2 1435</code></pre>
+<pre class="r"><code>accuracy &lt;- summary$overall[1]
+accuracy</code></pre>
+<pre><code>## Accuracy 
+##   0.9915</code></pre>
+<p>Most cases of each method (A, B, C, D, and E) are predicted well by the model. The overall accuracy of the model is 0.9915.</p>
+</div>
+<div id="prediction-of-unknowns" class="section level3">
+<h3>Prediction of Unknowns</h3>
+<p>Weight lifting methods are predicted for the 20 cases in the “validation” dataset. These predictions are expected to have a lower accuracy than 0.9915, as out-of-sample error is usually worse than the in-sample error calculated above. However, the predictions displayed below are 100% correct (i.e. accuracy = 1), based on successful submission of these predictions in the Coursera Machine Learning class.</p>
 <pre class="r"><code>predvalrf &lt;- predict(fitrf, validation3)
 predvalrf</code></pre>
 <pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
 ## Levels: A B C D E</code></pre>
 </div>
-<div id="conclusions" class="section level2">
-<h2>Conclusions</h2>
-<p>The random forest model accurately predicts.</p>
+<div id="conclusions" class="section level3">
+<h3>Conclusions</h3>
+<p>The random forest model built above accurately predicts the method of weight lifting based on measurements from accelerometers on a person’s body (especially the belt and forearm) and dumbbell. This suggests that more than one personal activity monitoring device must be used if weight lifters wish to automatically assess whether their technique is correct or not.</p>
 </div>
 </div>
 

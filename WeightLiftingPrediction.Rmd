@@ -10,7 +10,7 @@ training <- read.csv("pml-training.csv")
 validation <- read.csv("pml-testing.csv")
 ```
 The packages required for model-building, `caret` and `randomForest`, were loaded.
-```{r library, cache=TRUE, message=FALSE}
+```{r library, message=FALSE}
 library(caret); library(randomForest)
 ```
 The "training" data was partitioned into "train" (60%) and "test" (40%) sets for model building and cross-validation, respectively. 
@@ -52,7 +52,7 @@ importance[top5,]
 Based on importance, the top 5 predictors include the amount of roll and yaw detected by the belt accelerometer, the pitch detected by the forearm accelerometer, and magnet measurements in the y and z planes from the accelerometer on the dumbell.
 
 ### Cross Validation
-Prior to attempting to predict weight lifting methods in the "validation" dataset, the model is first assessed on the modified "test" dataset. The random forest model is used to predict weight lifting methods for participants in the "test" dataset. These are then compared to the known weight lifting methods through calculating the confusion matrix below. Most cases of each method (A, B, C, D, and E) are predicted well by the model. The overall accuracy of the model is `r accuracy`.
+Prior to attempting to predict weight lifting methods in the "validation" dataset, the model is first assessed on the modified "test" dataset. The random forest model is used to predict weight lifting methods for participants in the "test" dataset. These are then compared to the known weight lifting methods through calculating the confusion matrix below. 
 ```{r crossvalidate}
 predrf <- predict(fitrf, test3)
 summary <- confusionMatrix(predrf, test3$classe)
@@ -60,6 +60,7 @@ summary$table
 accuracy <- summary$overall[1]
 accuracy
 ```
+Most cases of each method (A, B, C, D, and E) are predicted well by the model. The overall accuracy of the model is `r accuracy`.  
 
 ### Prediction of Unknowns
 Weight lifting methods are predicted for the 20 cases in the "validation" dataset. These predictions are expected to have a lower accuracy than `r accuracy`, as out-of-sample error is usually worse than the in-sample error calculated above. However, the predictions displayed below are 100% correct (i.e. accuracy = 1), based on successful submission of these predictions in the Coursera Machine Learning class.
